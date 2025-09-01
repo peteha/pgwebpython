@@ -1,4 +1,4 @@
-# Salt state for deploying Nginx as reverse proxy for Flask
+# Salt state for deploying Nginx as reverse proxy (Ubuntu 20+)
 
 nginx:
   pkg.installed:

@@ -5,8 +5,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User={{ web_user }}
+Group={{ web_group }}
 WorkingDirectory=/srv/pgwebpython/app
 Environment="PATH=/srv/pgwebpython/venv/bin"
 Environment="FLASK_ENV=production"

@@ -22,10 +22,24 @@ Tuning:
 - Set `MAX_POINTS` env var to change the number of points returned to the chart (default 1000).
 
 ## Salt Deployment
-- See `salt/flask_app.sls` and `salt/nginx.sls` for deployment automation
+- See `salt/pgwebpython/flask_app.sls` and `salt/pgwebpython/nginx.sls` for deployment automation
 
 ## Nginx
 - See `salt/pgwebpython/nginx.conf` for sample config
+
+## Update workflow (Salt)
+1. Push your changes to GitHub (branch `main` by default).
+2. On the target host, re-run the Salt states to pull latest and restart as needed:
+		- `salt-call state.apply pgwebpython` (includes nginx and app)
+		- or `salt-call state.apply pgwebpython.flask_app` (just the app)
+
+Configurable via pillar (optional):
+
+```
+pgwebpython:
+	url: https://github.com/peteha/pgwebpython.git
+	rev: main
+```
 
 ## Security
 - Password is shown in clear text for admin only

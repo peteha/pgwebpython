@@ -2,11 +2,24 @@ from flask import Blueprint, request, jsonify, current_app
 import datetime
 from app import db
 from app.models import ConnectionTest, DeploymentInfo
+try:
+    from prometheus_client import Counter, Histogram
+except Exception:
+    Counter = None
+    Histogram = None
 import time
 import logging
 
 bp = Blueprint('api', __name__)
 logger = logging.getLogger('pgwebpython.api')
+
+# Custom metrics
+if Counter and Histogram:
+    CONNECTION_TESTS_TOTAL = Counter('pgwebpython_connection_tests_total', 'Total connection tests', ['status'])
+    CONNECTION_TEST_DURATION = Histogram('pgwebpython_connection_test_seconds', 'Connection test duration (s)')
+else:
+    CONNECTION_TESTS_TOTAL = None
+    CONNECTION_TEST_DURATION = None
 
 @bp.route('/test', methods=['POST'])
 def test_connection():
@@ -31,9 +44,15 @@ def test_connection():
         db.session.add(test)
         db.session.commit()
         logger.info(f"Connection test recorded: response_time={response_time}")
+        if CONNECTION_TESTS_TOTAL:
+            CONNECTION_TESTS_TOTAL.labels(status='success').inc()
+        if CONNECTION_TEST_DURATION:
+            CONNECTION_TEST_DURATION.observe(response_time)
         return jsonify({'success': True, 'response_time': response_time})
     except Exception as e:
         logger.error(f"Connection test failed: {e}")
+        if CONNECTION_TESTS_TOTAL:
+            CONNECTION_TESTS_TOTAL.labels(status='error').inc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/add_record', methods=['POST'])

@@ -10,6 +10,10 @@ Group={{ web_group }}
 WorkingDirectory=/srv/pgwebpython/app
 Environment="PATH=/srv/pgwebpython/venv/bin"
 Environment="FLASK_ENV=production"
+Environment="prometheus_multiproc_dir=/var/run/pgwebpython-metrics"
+# Ensure the runtime dir exists
+ExecStartPre=/bin/mkdir -p /var/run/pgwebpython-metrics
+ExecStartPre=/bin/chown {{ web_user }}:{{ web_group }} /var/run/pgwebpython-metrics
 # Bind on localhost:5000, 3 workers, preload app for faster forks
 ExecStart=/srv/pgwebpython/venv/bin/gunicorn -w 3 -b 127.0.0.1:5000 app.__main__:app --timeout 60 --access-logfile - --error-logfile -
 Restart=on-failure

@@ -4,3 +4,5 @@ flask_cors
 psycopg2-binary
 plotly
 gunicorn
+prometheus-client
+prometheus-flask-exporter

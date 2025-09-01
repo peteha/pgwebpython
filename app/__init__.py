@@ -3,6 +3,15 @@ from flask import Flask
 import socket
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+try:
+    # Prefer multiprocess-aware exporter under gunicorn; fallback to single-process exporter
+    from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
+except Exception:
+    GunicornPrometheusMetrics = None
+try:
+    from prometheus_flask_exporter import PrometheusMetrics
+except Exception:
+    PrometheusMetrics = None
 
 db = SQLAlchemy()
 
@@ -31,6 +40,19 @@ def create_app():
     from app import routes, api
     app.register_blueprint(routes.bp)
     app.register_blueprint(api.bp, url_prefix='/api')
+
+    # Metrics and health
+    if GunicornPrometheusMetrics:
+        metrics = GunicornPrometheusMetrics(app, group_by='endpoint')
+        metrics.info('pgwebpython_info', 'Application info', version='1.0.0')
+    elif PrometheusMetrics:
+        metrics = PrometheusMetrics(app, group_by='endpoint')
+        metrics.info('pgwebpython_info', 'Application info', version='1.0.0')
+
+    # Liveness/health endpoint (works regardless of exporter availability)
+    @app.get('/healthz')
+    def healthz():
+        return {'status': 'ok'}, 200
 
     @app.context_processor
     def inject_server_hostname():

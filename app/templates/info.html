@@ -1,0 +1,21 @@
+{% extends 'layout.html' %}
+{% block title %}Connection Info{% endblock %}
+{% block content %}
+<section class="panel">
+    <div class="panel-header"><h2 class="h4">Connection Information</h2></div>
+    {% if deployment %}
+        <div class="kv">
+            <div class="row"><span class="key">Host</span><span class="val">{{ deployment.db_host }}</span></div>
+            <div class="row"><span class="key">Port</span><span class="val">{{ deployment.db_port }}</span></div>
+            <div class="row"><span class="key">Database</span><span class="val">{{ deployment.db_name }}</span></div>
+            <div class="row"><span class="key">User</span><span class="val">{{ deployment.db_user }}</span></div>
+            <div class="row"><span class="key">Password</span><span class="val danger">{{ deployment.db_password }}</span></div>
+        </div>
+    {% else %}
+        <p class="warn">No connection info found.</p>
+    {% endif %}
+    <div class="actions">
+        <a class="btn btn-outline-light" href="/">Back</a>
+    </div>
+</section>
+{% endblock %}

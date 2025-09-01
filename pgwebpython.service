@@ -1,0 +1,19 @@
+# systemd unit to run pgwebpython via gunicorn
+[Unit]
+Description=pgwebpython Flask app (gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/pgwebpython/app
+Environment="PATH=/srv/pgwebpython/venv/bin"
+Environment="FLASK_ENV=production"
+# Bind on localhost:5000, 3 workers, preload app for faster forks
+ExecStart=/srv/pgwebpython/venv/bin/gunicorn -w 3 -b 127.0.0.1:5000 app.__main__:app --timeout 60 --access-logfile - --error-logfile -
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

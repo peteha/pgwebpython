@@ -1,0 +1,53 @@
+:root{
+  --bg:#2d2a2e; --fg:#f8f8f2; --muted:#b7b7b7; --mk-green:#a6e22e; --mk-pink:#f92672; --mk-orange:#fd971f; --mk-blue:#66d9ef; --mk-purple:#ae81ff; --mk-yellow:#e6db74;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans","Liberation Sans",Arial,"Apple Color Emoji","Segoe UI Emoji"}
+.container{max-width:1100px;margin:0 auto;padding:16px}
+.navbar{background:#232225;border-bottom:1px solid #3a3940;position:sticky;top:0;z-index:10}
+.gradient-monokai{background:linear-gradient(90deg,#232225 0%,#2d2a2e 50%,#232225 100%)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between}
+.brand{color:var(--mk-purple);font-weight:800;letter-spacing:.5px}
+.nav-link{color:var(--mk-blue);margin-left:12px;text-decoration:none}
+.nav-link:hover{color:var(--mk-yellow)}
+.footer{color:var(--mk-green);text-align:center;margin:32px 0;opacity:.9}
+.panel{background:#27252a;border:1px solid #3a3940;border-radius:10px;padding:16px;margin-top:16px;box-shadow:0 6px 30px rgba(0,0,0,.25)}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.inline-form{display:flex;gap:8px;align-items:center}
+.label{color:var(--mk-yellow);font-size:.9rem}
+.input{background:#1f1e22;border:1px solid #3a3940;color:var(--fg);padding:8px 10px;border-radius:6px;outline:none}
+.input:focus{border-color:var(--mk-blue);box-shadow:0 0 0 2px rgba(102,217,239,.25)}
+.btn{background:#3a3940;color:var(--fg);border:1px solid #4b4952;padding:8px 12px;border-radius:6px;cursor:pointer}
+.btn:hover{border-color:var(--mk-blue);color:var(--mk-blue)}
+.btn-primary{background:var(--mk-blue);color:#0d1b1e;border-color:transparent}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-accent{background:var(--mk-orange);color:#1e1207;border-color:transparent}
+.btn-accent:hover{filter:brightness(1.05)}
+.graph{height:420px}
+.badge{display:inline-block;background:#1f1e22;border:1px solid #3a3940;border-radius:999px;padding:4px 10px;color:var(--muted);margin-bottom:8px}
+.kv{display:grid;gap:8px}
+.kv .row{display:flex;gap:12px}
+.kv .key{min-width:120px;color:var(--mk-yellow)}
+.kv .val{color:var(--mk-green)}
+.kv .val.danger{color:var(--mk-pink)}
+.actions{margin-top:12px;display:flex;gap:8px}
+.messages{margin:10px 0}
+.alert{padding:8px 12px;border-radius:6px}
+.alert-danger{background:rgba(249,38,114,.15);border:1px solid rgba(249,38,114,.35);color:var(--mk-pink)}
+.alert-info{background:rgba(102,217,239,.15);border:1px solid rgba(102,217,239,.35);color:var(--mk-blue)}
+.hint{color:var(--muted);font-size:.9rem}
+.warn{color:var(--mk-pink)}
+
+/* Toast variants matching Monokai */
+.toast{background:#1f1e22;color:var(--fg)}
+.toast-info{border-left:4px solid var(--mk-blue)}
+.toast-danger{border-left:4px solid var(--mk-pink)}
+.toast-warning{border-left:4px solid var(--mk-orange)}
+.toast-success{border-left:4px solid var(--mk-green)}
+
+/* Responsive: stack controls under header title on smaller widths */
+@media (max-width: 900px){
+  .panel-header{flex-direction:column;align-items:flex-start}
+  .panel-header .controls{margin-top:8px;width:100%}
+}

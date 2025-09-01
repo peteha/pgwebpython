@@ -1,0 +1,35 @@
+{% extends 'layout.html' %}
+{% block title %}Setup DB Connection{% endblock %}
+{% block content %}
+<section class="panel">
+    <div class="panel-header"><h2 class="h4">Setup Database Connection</h2></div>
+    <form method="post" class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Host</label>
+            <input class="form-control" type="text" name="db_host" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Port</label>
+            <input class="form-control" type="number" name="db_port" value="5432" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Database Name</label>
+            <input class="form-control" type="text" name="db_name" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">User</label>
+            <input class="form-control" type="text" name="db_user" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Password</label>
+            <input class="form-control" type="password" name="db_password" required>
+        </div>
+        <div class="col-12 d-flex gap-2 mt-2">
+            <button class="btn btn-primary" type="submit">Save & Setup</button>
+            <a class="btn btn-outline-light" href="/">Back</a>
+        </div>
+    </form>
+    <p class="hint mt-2">Note: This will attempt to connect to your server, create the target database if missing, and store credentials (password will be visible on the Info page).</p>
+    <p class="warn">Security warning: Avoid reusing production credentials for testing.</p>
+</section>
+{% endblock %}

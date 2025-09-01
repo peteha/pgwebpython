@@ -1,0 +1,484 @@
+{% extends 'layout.html' %}
+{% block title %}PG Connection Times{% endblock %}
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <h1 class="h3 m-0">PG Connection Times</h1>
+        <div class="controls">
+            <form method="get" action="/" class="inline-form">
+                <label class="label me-2">Refresh (s)</label>
+                <input class="form-control form-control-sm" style="width:90px" type="number" name="refresh" value="{{ refresh_interval }}" min="1">
+                <button class="btn btn-warning btn-sm ms-2" type="submit">Apply</button>
+            </form>
+            <a class="btn btn-outline-light btn-sm" href="/setup">Setup</a>
+            <a class="btn btn-outline-light btn-sm" href="/info">Info</a>
+            <button class="btn btn-primary btn-sm" onclick="testConnection()">Test Connection</button>
+                        <!-- Batch controls -->
+                        <div class="d-flex flex-wrap align-items-center gap-2 ms-2">
+                            <div class="input-group input-group-sm" style="width: 120px;">
+                                <span class="input-group-text">Count</span>
+                                <input id="batchCount" type="number" class="form-control" value="10" min="1">
+                            </div>
+                            <div class="input-group input-group-sm" style="width: 150px;">
+                                <span class="input-group-text">Interval</span>
+                                <input id="batchInterval" type="number" class="form-control" value="2" min="1">
+                                <span class="input-group-text">s</span>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="batchRandom">
+                                <label class="form-check-label" for="batchRandom">Random</label>
+                            </div>
+                            <div id="randInputs" class="d-flex align-items-center gap-2" style="display:none;">
+                                <div class="input-group input-group-sm" style="width: 140px;">
+                                    <span class="input-group-text">Min</span>
+                                    <input id="batchRandMin" type="number" class="form-control" value="1" min="1">
+                                    <span class="input-group-text">s</span>
+                                </div>
+                                <div class="input-group input-group-sm" style="width: 140px;">
+                                    <span class="input-group-text">Max</span>
+                                    <input id="batchRandMax" type="number" class="form-control" value="5" min="1">
+                                    <span class="input-group-text">s</span>
+                                </div>
+                            </div>
+                            <button id="btnRunBatch" class="btn btn-success btn-sm">Run Batch</button>
+                            <button id="btnStopBatch" class="btn btn-outline-light btn-sm" disabled>Stop</button>
+                            <span id="batchStatus" class="badge bg-secondary">Idle</span>
+                                        <!-- Blast controls -->
+                                        <div class="vr d-none d-md-block"></div>
+                                        <div class="d-flex flex-wrap align-items-center gap-2">
+                                            <div class="input-group input-group-sm" style="width: 160px;">
+                                                <span class="input-group-text">Duration</span>
+                                                <input id="blastDuration" type="number" class="form-control" value="10" min="1">
+                                                <span class="input-group-text">s</span>
+                                            </div>
+                                            <div class="input-group input-group-sm" style="width: 170px;">
+                                                <span class="input-group-text">Concurrency</span>
+                                                <input id="blastConcurrency" type="number" class="form-control" value="5" min="1" max="64">
+                                            </div>
+                                            <button id="btnStartBlast" class="btn btn-danger btn-sm">Blast</button>
+                                            <button id="btnStopBlast" class="btn btn-outline-light btn-sm" disabled>Stop</button>
+                                            <span id="blastStatus" class="badge bg-secondary">Idle</span>
+                                        </div>
+                        </div>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <span class="badge bg-secondary">Auto refresh: <span id="refreshVal">{{ refresh_interval }}</span>s</span>
+        {% if deployment %}
+            <span class="badge"><span class="fw-semibold">Server</span>: {{ deployment.db_host }}:{{ deployment.db_port }}</span>
+            <span class="badge"><span class="fw-semibold">Database</span>: {{ deployment.db_name }}</span>
+            <span class="badge"><span class="fw-semibold">User</span>: {{ deployment.db_user }}</span>
+        {% endif %}
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2">
+        <span class="label">View:</span>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Range presets">
+            <button id="range-30s" class="btn btn-outline-light">30s</button>
+            <button id="range-1m" class="btn btn-outline-light">1m</button>
+            <button id="range-5m" class="btn btn-outline-light">5m</button>
+            <button id="range-all" class="btn btn-outline-light active">All</button>
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-3 mt-2">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="smoothToggle">
+            <label class="form-check-label" for="smoothToggle">Smooth line</label>
+        </div>
+    </div>
+    <div id="graph" class="graph mt-2"></div>
+</section>
+
+<script>
+    const REFRESH_INTERVAL = Number('{{ refresh_interval }}');
+
+    let selectedWindowSec = null; // null => All
+    let LAST_SIG = null; // simple signature of current data
+    let LAST_DATA = null; // last dataset for forced redraws
+
+    function plotGraph(data) {
+        // Ensure chronological order
+        const sorted = (data || []).slice().sort((a,b) => a.tested_at.localeCompare(b.tested_at));
+    const times = sorted.map(x => x.response_time);
+    const dates = sorted.map(x => new Date(String(x.tested_at)));
+
+        // Theme colors from CSS vars
+        const css = getComputedStyle(document.documentElement);
+        const colGreen = css.getPropertyValue('--mk-green').trim() || '#a6e22e';
+        const colPurple = css.getPropertyValue('--mk-purple').trim() || '#ae81ff';
+        const grid = '#3a3940';
+        const paper = '#27252a';
+        const font = '#f8f8f2';
+
+        // Moving average (window = min(10, n/3) rounded >= 3)
+        const n = times.length;
+        const win = Math.max(3, Math.min(10, Math.floor(n / 3)));
+        const ma = [];
+        if (n && win >= 3) {
+            let sum = 0;
+            for (let i = 0; i < n; i++) {
+                sum += times[i];
+                if (i >= win) sum -= times[i - win];
+                ma.push(i >= win - 1 ? sum / win : null);
+            }
+        }
+
+        // Main trace with smooth line and subtle fill
+        const isSmooth = !!(window.localStorage && localStorage.getItem('smooth_line') === '1' || document.getElementById('smoothToggle')?.checked);
+        const trace = {
+            x: dates,
+            y: times,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Latency',
+            line: { color: colGreen, width: 2, shape: isSmooth ? 'spline' : 'linear', smoothing: isSmooth ? 0.6 : 0 },
+            connectgaps: false,
+            fill: 'tozeroy',
+            fillcolor: 'rgba(166,226,46,0.12)', // mk-green @ ~12%
+            hovertemplate: '<b>%{y:.3f}s</b><br>%{x}<extra>Latency</extra>'
+        };
+
+        // Moving average overlay (if available)
+        const traces = [trace];
+    if (ma.length) {
+            traces.push({
+                x: dates,
+                y: ma,
+                type: 'scatter',
+                mode: 'lines',
+                name: `MA(${win})`,
+                line: { color: colPurple, width: 2, dash: 'dot' },
+                hovertemplate: '<b>MA</b>: %{y:.3f}s<br>%{x}<extra></extra>'
+            });
+        }
+
+        const layout = {
+            title: { text: `Connection Times (s) · ${n} point${n===1?'':'s'}`, x: 0, font: { color: font } },
+            paper_bgcolor: paper,
+            plot_bgcolor: paper,
+            margin: { t: 50, r: 20, b: 50, l: 60 },
+            xaxis: {
+                title: { text: 'Time', font: { color: '#b7b7b7' } },
+                gridcolor: grid, zerolinecolor: grid, color: '#b7b7b7', type: 'date',
+                showspikes: true, spikethickness: 1, spikedash: 'dot', spikemode: 'across',
+                rangeslider: { visible: true, bgcolor: '#1f1e22', bordercolor: grid, thickness: 0.08 }
+            },
+            yaxis: {
+                title: { text: 'Seconds', font: { color: '#b7b7b7' } },
+                gridcolor: grid, zerolinecolor: grid, color: '#b7b7b7'
+            },
+            hovermode: 'x unified',
+            legend: { orientation: 'h', y: -0.2, x: 0 }
+        };
+
+        const config = { responsive: true, displayModeBar: false, scrollZoom: true };
+    Plotly.react('graph', traces, layout, config).then(() => {
+            if (selectedWindowSec) {
+                applySelectedRange();
+            }
+        });
+    }
+
+    // Helpers for range presets
+    function parseIsoToDate(iso){ return new Date(iso.replace(' ', 'T')); }
+
+    function applySelectedRange(){
+        if (!selectedWindowSec) return;
+        const end = Date.now();
+        const start = end - selectedWindowSec * 1000;
+        Plotly.relayout('graph', {
+            'xaxis.range': [new Date(start), new Date(end)]
+        });
+    }
+
+    function signature(arr){
+        if (!arr || !arr.length) return '0';
+        return `${arr.length}|${arr[0].tested_at}|${arr[arr.length-1].tested_at}`;
+    }
+
+    async function fetchData(force=false) {
+        const res = await fetch('/api/records');
+        const data = await res.json();
+        const sig = signature(data);
+        if (!force && sig === LAST_SIG) {
+            // No data change; still slide window if a preset is active
+            if (selectedWindowSec) applySelectedRange();
+            return;
+        }
+        LAST_SIG = sig; LAST_DATA = data;
+        plotGraph(data);
+    }
+
+    async function testConnection() {
+        const btn = document.querySelector('.btn.btn-primary');
+        const prev = btn.textContent; btn.textContent = 'Testing…'; btn.disabled = true;
+        try {
+                        const res = await fetch('/api/test', { method: 'POST' });
+                        const result = await res.json();
+                        if (result && result.success) {
+                            showToast(`Connection OK: ${result.response_time.toFixed(3)}s`, 'info');
+                        } else {
+                            showToast(`Connection failed: ${(result && result.error) || 'Unknown error'}`, 'danger');
+                        }
+            await fetchData();
+        } finally {
+            btn.textContent = prev; btn.disabled = false;
+        }
+    }
+
+    fetchData();
+    setInterval(fetchData, REFRESH_INTERVAL * 1000);
+
+            // Batch test logic (static controls)
+            (function(){
+                const chkRandom = document.getElementById('batchRandom');
+                const randInputs = document.getElementById('randInputs');
+                const btnRun = document.getElementById('btnRunBatch');
+                const btnStop = document.getElementById('btnStopBatch');
+                const status = document.getElementById('batchStatus');
+                if (!btnRun) return; // not on this page
+
+                chkRandom.addEventListener('change', () => {
+                    randInputs.style.display = chkRandom.checked ? '' : 'none';
+                });
+
+                let remaining = 0; let successes = 0; let failures = 0; let timer = null; let running = false;
+                const inputs = ['batchCount','batchInterval','batchRandMin','batchRandMax'].map(id => document.getElementById(id));
+
+                const setUI = (isRunning) => {
+                    running = isRunning;
+                    btnRun.disabled = isRunning;
+                    btnStop.disabled = !isRunning;
+                    inputs.forEach(i => i && (i.disabled = isRunning));
+                };
+
+                const nextDelayMs = () => {
+                    if (!chkRandom.checked) {
+                        const s = Number(document.getElementById('batchInterval').value || 1);
+                        return Math.max(1, s) * 1000;
+                    }
+                    const min = Math.max(1, Number(document.getElementById('batchRandMin').value || 1));
+                    const max = Math.max(min, Number(document.getElementById('batchRandMax').value || min));
+                    const s = Math.random() * (max - min) + min;
+                    return s * 1000;
+                };
+
+                const updateStatus = () => {
+                    status.textContent = running
+                        ? `Running: left ${remaining}, ok ${successes}, fail ${failures}`
+                        : `Done: ok ${successes}, fail ${failures}`;
+                };
+
+                const doOne = async () => {
+                    try {
+                        const res = await fetch('/api/test', { method: 'POST' });
+                        const json = await res.json();
+                        if (json && json.success) successes++; else failures++;
+                    } catch(e) {
+                        failures++;
+                    } finally {
+                        remaining--;
+                        updateStatus();
+                        await fetchData();
+                        if (remaining > 0 && running) {
+                            timer = setTimeout(doOne, nextDelayMs());
+                        } else {
+                            setUI(false);
+                        }
+                    }
+                };
+
+                btnRun.addEventListener('click', () => {
+                    if (running) return;
+                    remaining = Math.max(1, Number(document.getElementById('batchCount').value || 1));
+                    successes = 0; failures = 0; updateStatus();
+                    setUI(true);
+                    doOne();
+                });
+
+                btnStop.addEventListener('click', () => {
+                    running = false;
+                    if (timer) { clearTimeout(timer); timer = null; }
+                    updateStatus();
+                    setUI(false);
+                });
+            })();
+
+    // Range preset buttons
+    (function(){
+        const btn30 = document.getElementById('range-30s');
+        const btn1m = document.getElementById('range-1m');
+        const btn5m = document.getElementById('range-5m');
+        const btnAll = document.getElementById('range-all');
+        const all = [btn30, btn1m, btn5m, btnAll];
+
+        function setActive(btn){ all.forEach(b => b && b.classList.toggle('active', b === btn)); }
+
+        if (btn30) btn30.addEventListener('click', () => {
+            selectedWindowSec = 30; setActive(btn30); applySelectedRange();
+        });
+        if (btn1m) btn1m.addEventListener('click', () => {
+            selectedWindowSec = 60; setActive(btn1m); applySelectedRange();
+        });
+        if (btn5m) btn5m.addEventListener('click', () => {
+            selectedWindowSec = 300; setActive(btn5m); applySelectedRange();
+        });
+        if (btnAll) btnAll.addEventListener('click', () => {
+            selectedWindowSec = null; setActive(btnAll);
+            Plotly.relayout('graph', { 'xaxis.autorange': true });
+        });
+    })();
+
+    // Blast runner: hammer /api/test with concurrency for N seconds (persist + auto-resume)
+    (function(){
+        const btnStart = document.getElementById('btnStartBlast');
+        const btnStop = document.getElementById('btnStopBlast');
+        const status = document.getElementById('blastStatus');
+        const durationInput = document.getElementById('blastDuration');
+        const concInput = document.getElementById('blastConcurrency');
+        if (!btnStart) return;
+
+        let stopFlag = false;
+        let startedAt = 0;
+        let endsAt = 0;
+        let inFlight = 0;
+        let ok = 0;
+        let fail = 0;
+        let total = 0;
+        let tickTimer = null;
+
+        // Storage keys
+        const K = {
+            dur: 'blast_dur', conc: 'blast_conc', running: 'blast_running', until: 'blast_until', started: 'blast_started'
+        };
+
+        const setUI = (running) => {
+            btnStart.disabled = running;
+            btnStop.disabled = !running;
+            durationInput.disabled = running;
+            concInput.disabled = running;
+        };
+
+        const fmt = (n) => new Intl.NumberFormat().format(n);
+        const updateStatus = () => {
+            const now = Date.now();
+            const elapsed = Math.max(0, now - startedAt) / 1000;
+            const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+            const rps = elapsed > 0 ? (total / elapsed).toFixed(1) : '0.0';
+            status.textContent = `${remaining}s left — req ${fmt(total)} (ok ${fmt(ok)}, fail ${fmt(fail)}), in-flight ${inFlight}, ${rps} rps`;
+        };
+
+        async function oneRequest(){
+            try{
+                const res = await fetch('/api/test', { method: 'POST' });
+                const j = await res.json().catch(() => ({}));
+                if (res.ok && j && j.success) ok++; else fail++;
+            }catch(e){
+                fail++;
+            }finally{
+                total++; inFlight = Math.max(0, inFlight - 1);
+                // refresh chart occasionally to reduce overhead
+                if (total % 10 === 0) fetchData();
+            }
+        }
+
+        async function worker(){
+            while(!stopFlag && Date.now() < endsAt){
+                inFlight++;
+                // fire and forget; do not await here to maintain concurrency
+                oneRequest();
+                // small micro-delay to yield the event loop
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+
+        function clearPersist(){
+            try { localStorage.removeItem(K.running); localStorage.removeItem(K.until); localStorage.removeItem(K.started); } catch(e){}
+        }
+
+        function persistRun(secs, conc){
+            try {
+                localStorage.setItem(K.running, '1');
+                localStorage.setItem(K.until, String(Date.now() + secs * 1000));
+                localStorage.setItem(K.started, String(Date.now()));
+                localStorage.setItem(K.dur, String(secs));
+                localStorage.setItem(K.conc, String(conc));
+            } catch(e){}
+        }
+
+        function stop(){
+            stopFlag = true;
+            clearInterval(tickTimer);
+            setUI(false);
+            updateStatus();
+            // final chart refresh
+            fetchData();
+            clearPersist();
+        }
+
+        async function startBlast(secs, conc){
+            persistRun(secs, conc);
+            stopFlag = false; startedAt = Date.now(); endsAt = startedAt + secs * 1000;
+            inFlight = 0; ok = 0; fail = 0; total = 0; setUI(true); updateStatus();
+            tickTimer = setInterval(updateStatus, 250);
+            const workers = Array.from({length: conc}, () => worker());
+            await Promise.all(workers);
+            stop();
+        }
+
+        btnStart.addEventListener('click', async () => {
+            const secs = Math.max(1, Number(durationInput.value || 1));
+            const conc = Math.max(1, Math.min(64, Number(concInput.value || 1)));
+            startBlast(secs, conc);
+        });
+
+        btnStop.addEventListener('click', stop);
+
+        // Persist settings on change
+        function saveSettings(){
+            try {
+                localStorage.setItem(K.dur, String(Math.max(1, Number(durationInput.value || 1))));
+                localStorage.setItem(K.conc, String(Math.max(1, Math.min(64, Number(concInput.value || 1)))));
+            } catch(e){}
+        }
+        durationInput.addEventListener('change', saveSettings);
+        concInput.addEventListener('change', saveSettings);
+
+        // Restore settings
+        try {
+            const sd = localStorage.getItem(K.dur); if (sd) durationInput.value = sd;
+            const sc = localStorage.getItem(K.conc); if (sc) concInput.value = sc;
+        } catch(e){}
+
+        // Auto-resume if a blast was running and end time not reached
+        try {
+            const running = localStorage.getItem(K.running) === '1';
+            const until = Number(localStorage.getItem(K.until) || '0');
+            const sc = Math.max(1, Math.min(64, Number(localStorage.getItem(K.conc) || concInput.value || 1)));
+            const now = Date.now();
+            if (running && until > now) {
+                const remainingSec = Math.ceil((until - now)/1000);
+                // sync UI inputs for visibility
+                durationInput.value = String(remainingSec);
+                concInput.value = String(sc);
+                startBlast(remainingSec, sc);
+            } else {
+                clearPersist();
+            }
+        } catch(e){}
+    })();
+
+    // Smooth toggle persistence and re-plot
+    (function(){
+        const t = document.getElementById('smoothToggle');
+        if (!t) return;
+        try {
+            const v = localStorage.getItem('smooth_line');
+            if (v === '1') t.checked = true;
+        } catch(e){}
+        t.addEventListener('change', () => {
+            try { localStorage.setItem('smooth_line', t.checked ? '1' : '0'); } catch(e){}
+            if (LAST_DATA) { plotGraph(LAST_DATA); } else { fetchData(true); }
+        });
+    })();
+</script>
+{% endblock %}

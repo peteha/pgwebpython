@@ -48,9 +48,19 @@ def setup():
             logger.error(f"Error connecting/creating database: {e}")
             flash(f'Error connecting/creating database: {e}', 'danger')
             return render_template('setup.html')
-        # Save info
-        info = DeploymentInfo(db_host=db_host, db_port=db_port, db_name=db_name, db_user=db_user, db_password=db_password)
-        db.session.add(info)
+        # Save or update info (ensure only one deployment record exists)
+        info = DeploymentInfo.query.first()
+        if info:
+            logger.info("Updating existing deployment info.")
+            info.db_host = db_host
+            info.db_port = db_port
+            info.db_name = db_name
+            info.db_user = db_user
+            info.db_password = db_password
+        else:
+            logger.info("Creating new deployment info.")
+            info = DeploymentInfo(db_host=db_host, db_port=db_port, db_name=db_name, db_user=db_user, db_password=db_password)
+            db.session.add(info)
         db.session.commit()
         logger.info("Deployment info saved to DB.")
         # Switch app to Postgres DB and migrate tables

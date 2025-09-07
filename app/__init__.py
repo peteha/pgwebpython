@@ -42,7 +42,8 @@ def create_app():
     app.register_blueprint(api.bp, url_prefix='/api')
 
     # Metrics and health
-    if GunicornPrometheusMetrics:
+    import os
+    if GunicornPrometheusMetrics and (os.getenv('PROMETHEUS_MULTIPROC_DIR') or os.getenv('prometheus_multiproc_dir')):
         metrics = GunicornPrometheusMetrics(app, group_by='endpoint')
         metrics.info('pgwebpython_info', 'Application info', version='1.0.0')
     elif PrometheusMetrics:

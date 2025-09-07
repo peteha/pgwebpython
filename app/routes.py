@@ -22,13 +22,38 @@ def index():
 
 @bp.route('/setup', methods=['GET', 'POST'])
 def setup():
+    deployment = DeploymentInfo.query.first()  # Get existing config for pre-population
+    
     if request.method == 'POST':
-        db_host = request.form['db_host']
-        db_port = request.form['db_port']
-        db_name = request.form['db_name']
-        db_user = request.form['db_user']
-        db_password = request.form['db_password']
-        logger.info(f"Received DB setup: host={db_host}, port={db_port}, db={db_name}, user={db_user}")
+        # Handle connection string input
+        connection_string = request.form.get('connection_string', '').strip()
+        if not connection_string:
+            flash('Connection string is required', 'danger')
+            return render_template('setup.html', deployment=deployment)
+        
+        # Parse connection string
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(connection_string)
+            
+            if parsed.scheme not in ('postgresql', 'postgres'):
+                raise ValueError('Invalid protocol. Expected postgresql:// or postgres://')
+            
+            db_host = parsed.hostname
+            db_port = parsed.port or 5432
+            db_name = parsed.path.lstrip('/')
+            db_user = parsed.username
+            db_password = parsed.password or ''
+            
+            if not all([db_host, db_name, db_user]):
+                raise ValueError('Missing required components (host, database, or username)')
+                
+        except Exception as e:
+            logger.error(f"Error parsing connection string: {e}")
+            flash(f'Invalid connection string format: {e}', 'danger')
+            return render_template('setup.html', deployment=deployment)
+        
+        logger.info(f"Parsed connection string: host={db_host}, port={db_port}, db={db_name}, user={db_user}")
         # Try to connect and create DB if not exists
         try:
             # Connect to maintenance DB to manage databases
@@ -71,7 +96,7 @@ def setup():
         db.create_all()
         logger.info("Switched to Postgres DB and migrated tables.")
         return redirect(url_for('routes.index'))
-    return render_template('setup.html')
+    return render_template('setup.html', deployment=deployment)
 
 @bp.route('/info')
 def info():

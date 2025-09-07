@@ -1,21 +1,179 @@
 {% extends 'layout.html' %}
 {% block title %}Connection Info{% endblock %}
 {% block content %}
-<section class="panel">
-    <div class="panel-header"><h2 class="h4">Connection Information</h2></div>
-    {% if deployment %}
-        <div class="kv">
-            <div class="row"><span class="key">Host</span><span class="val">{{ deployment.db_host }}</span></div>
-            <div class="row"><span class="key">Port</span><span class="val">{{ deployment.db_port }}</span></div>
-            <div class="row"><span class="key">Database</span><span class="val">{{ deployment.db_name }}</span></div>
-            <div class="row"><span class="key">User</span><span class="val">{{ deployment.db_user }}</span></div>
-            <div class="row"><span class="key">Password</span><span class="val danger">{{ deployment.db_password }}</span></div>
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-6">
+            <!-- Connection Information Card -->
+            <div class="card mb-4">
+                <div class="card-header d-flex align-items-center">
+                    <i class="bi bi-database me-2"></i>
+                    <h3 class="card-title mb-0">Database Connection</h3>
+                </div>
+                <div class="card-body">
+                    {% if deployment %}
+                        <div class="row g-3">
+                            <!-- Connection Details -->
+                            <div class="col-12">
+                                <div class="p-3 bg-dark rounded">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label text-muted small">Host</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-server"></i></span>
+                                                <input type="text" class="form-control" value="{{ deployment.db_host }}" readonly>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ deployment.db_host }}')">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label text-muted small">Port</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-plug"></i></span>
+                                                <input type="text" class="form-control" value="{{ deployment.db_port }}" readonly>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ deployment.db_port }}')">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label text-muted small">Database</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-collection"></i></span>
+                                                <input type="text" class="form-control" value="{{ deployment.db_name }}" readonly>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ deployment.db_name }}')">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label text-muted small">User</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                                <input type="text" class="form-control" value="{{ deployment.db_user }}" readonly>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ deployment.db_user }}')">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label text-danger small">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>Password (Admin Only)
+                                            </label>
+                                            <div class="input-group">
+                                                <span class="input-group-text text-danger"><i class="bi bi-key"></i></span>
+                                                <input type="password" id="passwordField" class="form-control border-danger" value="{{ deployment.db_password }}" readonly>
+                                                <button class="btn btn-outline-danger" type="button" onclick="togglePassword()">
+                                                    <i id="passwordIcon" class="bi bi-eye"></i>
+                                                </button>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ deployment.db_password }}')">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </div>
+                                            <div class="form-text text-danger">
+                                                <i class="bi bi-shield-exclamation me-1"></i>
+                                                Sensitive information - ensure secure access
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Connection String -->
+                            <div class="col-12">
+                                <label class="form-label text-muted small">PostgreSQL Connection String</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                                    <input type="text" class="form-control font-monospace" 
+                                           value="postgresql://{{ deployment.db_user }}:****@{{ deployment.db_host }}:{{ deployment.db_port }}/{{ deployment.db_name }}" 
+                                           readonly>
+                                    <button class="btn btn-outline-secondary" type="button" 
+                                            onclick="copyToClipboard('postgresql://{{ deployment.db_user }}:{{ deployment.db_password }}@{{ deployment.db_host }}:{{ deployment.db_port }}/{{ deployment.db_name }}')">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    Copy button includes actual password for connection string
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning d-flex align-items-center" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <div>
+                                No database connection configured. 
+                                <a href="/setup" class="alert-link">Go to setup</a> to configure your database connection.
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 justify-content-between">
+                <a href="/" class="btn btn-outline-light">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                </a>
+                {% if deployment %}
+                <a href="/setup" class="btn btn-warning">
+                    <i class="bi bi-gear me-1"></i> Reconfigure
+                </a>
+                {% endif %}
+            </div>
         </div>
-    {% else %}
-        <p class="warn">No connection info found.</p>
-    {% endif %}
-    <div class="actions">
-        <a class="btn btn-outline-light" href="/">Back</a>
     </div>
-</section>
+</div>
+
+<script>
+function togglePassword() {
+    const passwordField = document.getElementById('passwordField');
+    const passwordIcon = document.getElementById('passwordIcon');
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        passwordIcon.className = 'bi bi-eye-slash';
+    } else {
+        passwordField.type = 'password';
+        passwordIcon.className = 'bi bi-eye';
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Show success feedback
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-bg-success border-0 position-fixed top-0 end-0 m-3';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-check-circle me-1"></i> Copied to clipboard!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        // Remove toast after it's hidden
+        toast.addEventListener('hidden.bs.toast', () => {
+            document.body.removeChild(toast);
+        });
+    }).catch(function(err) {
+        console.error('Could not copy text: ', err);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        // Show fallback success feedback
+        alert('Copied to clipboard!');
+    });
+}
+</script>
 {% endblock %}

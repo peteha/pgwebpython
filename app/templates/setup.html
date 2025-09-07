@@ -2,34 +2,132 @@
 {% block title %}Setup DB Connection{% endblock %}
 {% block content %}
 <section class="panel">
-    <div class="panel-header"><h2 class="h4">Setup Database Connection</h2></div>
+    <div class="panel-header">
+        <h2 class="h4">
+            {% if deployment %}
+                Reconfigure Database Connection
+            {% else %}
+                Setup Database Connection
+            {% endif %}
+        </h2>
+        {% if deployment %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-1"></i>
+                Updating configuration for: <strong>{{ deployment.db_host }}:{{ deployment.db_port }}/{{ deployment.db_name }}</strong>
+            </div>
+        {% endif %}
+    </div>
     <form method="post" class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label">Host</label>
-            <input class="form-control" type="text" name="db_host" required>
-        </div>
-        <div class="col-md-3">
-            <label class="form-label">Port</label>
-            <input class="form-control" type="number" name="db_port" value="5432" required>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Database Name</label>
-            <input class="form-control" type="text" name="db_name" required>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">User</label>
-            <input class="form-control" type="text" name="db_user" required>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Password</label>
-            <input class="form-control" type="password" name="db_password" required>
+        <div class="col-12">
+            <label class="form-label">
+                <i class="bi bi-link-45deg me-1"></i>
+                PostgreSQL Connection String
+            </label>
+            <input class="form-control form-control-lg font-monospace" type="text" name="connection_string" 
+                   {% if deployment %}
+                   value="postgresql://{{ deployment.db_user }}:{{ deployment.db_password }}@{{ deployment.db_host }}:{{ deployment.db_port }}/{{ deployment.db_name }}"
+                   {% else %}
+                   placeholder="postgresql://username:password@hostname:5432/database"
+                   {% endif %}
+                   required>
+            
+            {% if not deployment %}
+            <div class="form-text">
+                <strong>Example:</strong> <code>postgresql://myuser:mypass@localhost:5432/mydatabase</code>
+            </div>
+            <div class="alert alert-info mt-2">
+                <i class="bi bi-lightbulb me-1"></i>
+                <strong>Quick Start Example:</strong><br>
+                <code class="user-select-all">postgresql://postgres:password@localhost:5432/pgweb_test</code>
+                <button type="button" class="btn btn-outline-primary btn-sm ms-2" onclick="useExample()">
+                    <i class="bi bi-clipboard me-1"></i> Use This Example
+                </button>
+            </div>
+            {% else %}
+            <div class="form-text">
+                Current connection string is pre-filled above
+            </div>
+            {% endif %}
         </div>
         <div class="col-12 d-flex gap-2 mt-2">
-            <button class="btn btn-primary" type="submit">Save & Setup</button>
-            <a class="btn btn-outline-light" href="/">Back</a>
+            <button class="btn btn-primary" type="submit">
+                {% if deployment %}
+                    <i class="bi bi-arrow-repeat me-1"></i> Update & Reconnect
+                {% else %}
+                    <i class="bi bi-check-circle me-1"></i> Save & Setup
+                {% endif %}
+            </button>
+            <a class="btn btn-outline-light" href="/">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </a>
+            {% if deployment %}
+                <a class="btn btn-outline-info" href="/info">
+                    <i class="bi bi-info-circle me-1"></i> View Current Config
+                </a>
+            {% endif %}
         </div>
     </form>
     <p class="hint mt-2">Note: This will attempt to connect to your server, create the target database if missing, and store credentials (password will be visible on the Info page).</p>
     <p class="warn">Security warning: Avoid reusing production credentials for testing.</p>
 </section>
+
+<script>
+// Use the example connection string
+function useExample() {
+    const exampleString = 'postgresql://postgres:password@localhost:5432/pgweb_test';
+    const input = document.querySelector('input[name="connection_string"]');
+    input.value = exampleString;
+    input.focus();
+    
+    // Show success feedback
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-bg-success border-0 position-fixed top-0 end-0 m-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle me-1"></i> Example connection string applied!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove toast after it's hidden
+    toast.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toast);
+    });
+}
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const connectionString = document.querySelector('input[name="connection_string"]').value.trim();
+    
+    if (!connectionString) {
+        e.preventDefault();
+        alert('Please enter a connection string');
+        return;
+    }
+    
+    // Basic format validation
+    try {
+        const url = new URL(connectionString);
+        
+        if (url.protocol !== 'postgresql:' && url.protocol !== 'postgres:') {
+            throw new Error('Invalid protocol');
+        }
+        
+        if (!url.hostname || !url.pathname.substring(1) || !url.username) {
+            throw new Error('Missing required components');
+        }
+        
+    } catch (error) {
+        e.preventDefault();
+        alert('Invalid connection string format.\n\nExpected format:\npostgresql://username:password@hostname:port/database\n\nExample:\npostgresql://postgres:password@localhost:5432/mydatabase');
+        return;
+    }
+});
+</script>
 {% endblock %}
